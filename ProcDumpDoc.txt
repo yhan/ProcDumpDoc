@@ -1,0 +1,22 @@
+The line you provided looks like a registry value that sets the default postmortem debugger to be used by the operating system when a process crashes or encounters an unhandled exception. Here is a breakdown of what each part of the line does:
+
+
+(REG_SZ) Debugger = "C:\tools\SysinternalsSuite\procdump.exe" -accepteula -ma -j "C:\yi\dumps" %ld %ld %p
+(REG_SZ) indicates the type of the registry value. In this case, it is a string value.
+Debugger is the name of the registry value.
+="C:\tools\SysinternalsSuite\procdump.exe" -accepteula -ma -j "C:\yi\dumps" %ld %ld %p is the data for the registry value. This string sets the command line for the postmortem debugger.
+Breaking down the command line:
+
+"C:\tools\SysinternalsSuite\procdump.exe" is the path to the procdump.exe tool.
+-accepteula is an option to accept the End User License Agreement for the tool.
+-ma is an option to create a memory dump file with full memory.
+-j "C:\yi\dumps" is an option to match the process name or command line with the specified string and save the dump file to the specified folder. In this case, it looks like it is set to save the dump files to C:\yi\dumps.
+%ld %ld %p are arguments that will be replaced with specific values when the postmortem debugger is launched. %ld %ld represent the process ID and parent process ID, respectively, and %p represents the exception information.
+When a process crashes or encounters an unhandled exception, the operating system will launch the specified debugger with the command line specified in the registry value. The debugger will then generate a memory dump file for the crashed process with the specified options and save it to the specified folder.
+
+
+
+(REG_SZ) Debugger = "C:\tools\SysinternalsSuite\procdump.exe" -accepteula -ma -e myapp.exe -j "C:\yi\dumps" %ld %ld %p   <- write this is Debugger key in reg key does not work
+
+
+"C:\tools\SysinternalsSuite\procdump.exe" -accepteula -ma -j "C:\yi\dumps" %ld %ld %p  <--- match all crashing processes  procdump -ma -i "C:\yi\dumps"

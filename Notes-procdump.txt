@@ -1,0 +1,168 @@
+reg query "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug"
+
+
+wait for notepad to start and write dump to my folder
+procdump -accepteula -e -t -w notepad.exe -o C:\Dumps
+
+
+
+The -i (or -IncludeProcessMemory) argument is an option available with ProcDump that tells it to include the process memory in the generated dump file.
+
+When the -i option is used, ProcDump will capture not only the thread context and exception information, but also the contents of the process's virtual memory space. This can be useful for capturing information such as stack traces, heap information, and other memory-related information that can aid in troubleshooting the issue.
+
+Here is an example command to use ProcDump with the -i option to generate a full memory dump file for a specific process by name:
+
+```
+procdump -ma -i <ProcessName>
+```
+	
+In this command, replace <ProcessName> with the name of the process for which you want to generate a dump file.
+
+When you run this command, ProcDump will generate a full memory dump file for the specified process, including the process memory, which can be useful for troubleshooting certain types of issues. Note that generating a full memory dump file can generate a large dump file, and may take longer to generate than a regular minidump file.
+
+
+
+-> C:\WINDOWS\system32› procdump -ma -i C:\yi\dumps\
+
+ProcDump v10.11 - Sysinternals process dump utility
+Copyright (C) 2009-2021 Mark Russinovich and Andrew Richards
+Sysinternals - www.sysinternals.com
+
+Set to:
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug
+    (REG_SZ) Auto     = 1
+    (REG_SZ) Debugger = "C:\tools\SysinternalsSuite\procdump.exe" -accepteula -ma -j "C:\yi\dumps" %ld %ld %p
+
+Set to:
+  HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\AeDebug
+    (REG_SZ) Auto     = 1
+    (REG_SZ) Debugger = "C:\tools\SysinternalsSuite\procdump.exe" -accepteula -ma -j "C:\yi\dumps" %ld %ld %p
+
+ProcDump is now set as the Just-in-time (AeDebug) debugger.
+
+
+
+
+Note that the -w option can cause ProcDump to wait indefinitely for the specified process to start. To avoid this, you can use the -timeout option to specify a maximum amount of time to wait for the process to start, like this:
+In this example, the -timeout option is set to 30 seconds, which means ProcDump will wait for the process to start for up to 30 seconds before timing out and exiting.
+
+Note: The -e option specifies that ProcDump should generate a dump file on process termination. The -t option specifies that ProcDump should monitor the specified process by name.
+
+
+procdump -e -t -w -timeout 30 <ProcessName>
+
+
+
+
+To check the bitness of a program like procdump.exe, you can use the following steps:
+
+Open a command prompt and navigate to the directory containing the procdump.exe file.
+
+Run the following command to display information about the procdump.exe file:
+
+bash
+Copy code
+dumpbin /headers procdump.exe
+This will display a lot of information about the procdump.exe file, including the architecture for which it was built.
+
+Look for the OPTIONAL HEADER VALUES section in the output. This section contains information about the executable's architecture.
+
+Look for the Magic value in the OPTIONAL HEADER VALUES section. This value indicates the architecture for which the executable was built. Here are some possible values:
+
+0x10b: This indicates that the executable was built for a 32-bit architecture.
+0x20b: This indicates that the executable was built for a 64-bit architecture.
+If the Magic value is 0x10b, then the procdump.exe file is a 32-bit executable. If the Magic value is 0x20b, then the procdump.exe file is a 64-bit executable.
+
+Note that if you're running this command on a 64-bit version of Windows, you can also look at the "Platform" column in the output of the tasklist command to see whether a process is 32-bit or 64-bit. If a process is 32-bit, the "Platform" column will show "32-bit". If a process is 64-bit, the "Platform" column will show "64-bit".
+
+
+
+using System;
+using System.IO.MemoryMappedFiles;
+using System.Threading;
+using SharedMemory;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        // Try to open the shared memory region with a timeout of 10 seconds
+        bool success = false;
+        using (var memory = TryOpenSharedMemoryRegion("MySharedMemory", 4096, 10000, out success))
+        {
+            if (success)
+            {
+                // Create a mutex with the same name as process 1
+                Mutex mutex = Mutex.OpenExisting("MySharedMemoryMutex");
+
+                // Wait for ownership of the mutex
+                mutex.WaitOne();
+
+                // Read the text from the shared memory region
+                byte[] buffer = new byte[13];
+                memory.Read(buffer, 0, buffer.Length);
+                string text = System.Text.Encoding.ASCII.GetString(buffer);
+
+                // Display the text
+                Console.WriteLine(text);
+
+                // Release ownership of the mutex
+                mutex.ReleaseMutex();
+            }
+            else
+            {
+                Console.WriteLine("Failed to open shared memory region.");
+            }
+        }
+    }
+
+    static SharedMemoryRegion TryOpenSharedMemoryRegion(string name, long size, int timeout, out bool success)
+    {
+        success = false;
+        int elapsed = 0;
+        SharedMemoryRegion memory = null;
+        while (elapsed < timeout)
+        {
+            try
+            {
+                memory = SharedMemoryRegion.OpenExisting(name);
+                success = true;
+                break;
+            }
+            catch (FileNotFoundException)
+            {
+                // Shared memory region does not exist yet
+            }
+            Thread.Sleep(1000);
+            elapsed += 1000;
+        }
+        if (success)
+        {
+            if (memory.Size != size)
+            {
+                memory.Dispose();
+                success = false;
+            }
+        }
+        return memory;
+    }
+}
+
+
+
+The location where the memory mapped file is stored depends on the implementation of the operating system. Typically, the operating system maps the memory mapped file to the virtual address space of the process, but it may or may not load the entire file into memory immediately.
+
+When a memory mapped file is created or opened, the operating system creates a mapping between the virtual address space of the process and the physical storage location of the file. The physical storage location of the file can be either in memory or on disk (i.e., the paging file).
+
+When a process accesses a memory mapped file, the operating system reads or writes the data from or to the mapped physical storage location as needed. If the data is already in memory, the operating system retrieves it from memory. If the data is not in memory, the operating system retrieves it from the disk and loads it into memory.
+
+In general, the operating system will try to minimize the number of disk accesses and optimize memory usage by using various techniques such as page caching, lazy loading, and memory mapping. However, the exact behavior may vary depending on the implementation and configuration of the operating system, as well as the size and usage pattern of the memory mapped file.
+
+
+
+
+reead or write the data from or to the page cache instead of the physical storage location on disk. 
+>> where does page cache happen?
+
+
+With Memory mapping, the process reads directly from disk then?
